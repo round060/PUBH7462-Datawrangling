@@ -1,0 +1,132 @@
+---
+title: "Data Wrangling I"
+author: "Christopher Rounds"
+date: "2/4/2022"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(gt)
+
+knitr::opts_chunk$set(
+#  fig.height =   
+  fig.width = 6,
+#  fig.asp = .5,
+  out.width = "90%",
+#  out.height = 
+ fig.align  = "center",
+  cache = FALSE,
+  eval  = TRUE,
+  echo  = TRUE
+)
+options(digits = 3)
+```
+
+# 1.1) Convert data from wide to long format
+```{r penguindf}
+penguin.df <- read_rds("./data/penguin.RDS") %>%
+              mutate(year = as.factor(year), sex  = str_to_title(sex) %>%
+                       ifelse(is.na(.), "Unknown", .))
+penguin.df #not tidy, each observation is not its own row
+tidy_penguin.df <- penguin.df %>% 
+  pivot_longer(cols = contains("_"), 
+               names_to = "measurement_type",
+               values_to = "measurement") 
+tidy_penguin.df #df is now "longer", and each observation is its own row
+
+```
+
+# 1.2) Summarise measurements
+```{r penguins, fig.height = 8, warning = FALSE, message = FALSE}
+tidy_penguin.df %>%
+  group_by(sex, measurement_type) %>%
+  summarise(median = median(measurement, na.rm = TRUE),
+            mean = mean(measurement, na.rm = TRUE),
+            sd = sd(measurement, na.rm = TRUE)) %>%
+  gt() %>%
+  tab_header("Summary of Measurements by Sex")
+
+
+tidy_penguin.df %>%
+  group_by(sex, species, measurement_type) %>%
+  summarise(median = median(measurement, na.rm = TRUE),
+            mean = mean(measurement, na.rm = TRUE),
+            sd = sd(measurement, na.rm = TRUE)) %>%
+  gt() %>%
+  tab_header("Summary of Measurements by Sex and Species")
+
+tidy_penguin.df %>%
+  group_by(sex, species, year, measurement_type) %>%
+  dplyr::filter(sex == "Male" | sex == "Female") %>%
+  summarise(mean = mean(measurement, na.rm = TRUE)) %>%
+  mutate(year = year %>%
+           as.character() %>%
+           as.numeric()) %>%
+  ggplot(aes(x = year, y = mean, colour = species)) +
+  geom_point(size = 4) +
+  stat_smooth(alpha = 0.1, size = 1.2, method = "loess", span = 2, se = FALSE) +
+  facet_wrap(~measurement_type + sex, ncol = 2, scales = "free") +
+  xlab("Year") +
+  ylab("Mean value") +
+  ggtitle("Mean penguin measurements")
+```
+
+# 2.1) group_by(), summarise() and across()
+We can perform the exact same manipulation as above but without needing to tidy the data first
+```{r across, message = FALSE}
+penguin.df %>%
+  group_by(sex) %>%
+  summarise(across(contains("_"), 
+                   ~ mean(.x, na.rm = TRUE), .names = "{.col}_mean")) %>% 
+  gt()
+
+#remove units in the columns
+penguin.df %>%
+  group_by(sex) %>%
+  summarise(across(contains("_"), 
+                   ~ mean(.x, na.rm = TRUE), .names = "{.col}_mean")) %>% 
+  pivot_longer(-sex, names_to = "measurement", values_to = "mean") %>%
+  mutate(measurement = str_remove(measurement, "_mm|_g")) %>%
+  pivot_wider(names_from = "measurement", values_from = "mean") %>%
+  gt()
+  
+```
+
+# 2.2) Summarise Measurements with mean and median by Sex and Species
+```{r acrossadvanced, message = FALSE, warning = FALSE}
+penguin.df %>%
+  group_by(sex, species) %>%
+  summarise(across(contains("_"), 
+                  list(mean = mean, median = median), #use functions mean and median
+                  na.rm = TRUE, .names = "{.col}_{.fn}")) %>%  
+  #names the output columns the column name and the way it was summarised (mean or median)
+  pivot_longer(-c(sex,species), names_to = "measurement", values_to = "mean") %>%
+  mutate(measurement = str_remove(measurement, "_mm|_g")) %>%
+  pivot_wider(names_from = "measurement", values_from = "mean") %>%
+  gt()
+  
+```
+
+# 2.3) Now plot!
+```{r acrossplot, fig.height = 8, warning = FALSE}
+penguin.df %>%
+  group_by(sex, species, year) %>%
+  summarise(across(contains("_"), ~ mean(.x, na.rm = TRUE), 
+                   .names = "{.col}_mean")) %>% 
+  # converts the df to averages for sex, species and year for all variables
+  pivot_longer(-c(sex,species, year), names_to = "measurement", values_to = "mean") %>%
+  mutate(measurement = str_remove(measurement, "_mm|_g")) %>% # removes the units
+  dplyr::filter(sex == "Male" | sex == "Female") %>% # filters out the unknown sex
+  mutate(year = year %>% as.character() %>% as.numeric()) %>% #lets us use stat_smooth 
+  ggplot(aes(x = year, y = mean, colour = species)) +
+  geom_point(size = 4) +
+  stat_smooth(alpha = 0.1, size = 1.2, method = "loess",span = 2, se = FALSE) +
+  facet_wrap(~measurement + sex, ncol = 2, scales = "free") +
+  xlab("Year") +
+  ylab("Mean value") +
+  ggtitle("Mean penguin measurements")
+  
+  
+```
