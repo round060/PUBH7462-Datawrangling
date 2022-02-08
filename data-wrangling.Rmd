@@ -29,6 +29,7 @@ options(digits = 3)
 penguin.df <- read_rds("./data/penguin.RDS") %>%
               mutate(year = as.factor(year), sex  = str_to_title(sex) %>%
                        ifelse(is.na(.), "Unknown", .))
+as_raw_html(gt(penguin.df))
 penguin.df #not tidy, each observation is not its own row
 tidy_penguin.df <- penguin.df %>% 
   pivot_longer(cols = contains("_"), 
