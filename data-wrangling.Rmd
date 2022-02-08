@@ -29,7 +29,7 @@ options(digits = 3)
 penguin.df <- read_rds("./data/penguin.RDS") %>%
               mutate(year = as.factor(year), sex  = str_to_title(sex) %>%
                        ifelse(is.na(.), "Unknown", .))
-as_raw_html(gt(penguin.df))
+
 penguin.df #not tidy, each observation is not its own row
 tidy_penguin.df <- penguin.df %>% 
   pivot_longer(cols = contains("_"), 
@@ -47,7 +47,8 @@ tidy_penguin.df %>%
             mean = mean(measurement, na.rm = TRUE),
             sd = sd(measurement, na.rm = TRUE)) %>%
   gt() %>%
-  tab_header("Summary of Measurements by Sex")
+  tab_header("Summary of Measurements by Sex") %>%
+  gt::as_raw_html() # I get weird HTML code WO this line
 
 
 tidy_penguin.df %>%
@@ -56,7 +57,8 @@ tidy_penguin.df %>%
             mean = mean(measurement, na.rm = TRUE),
             sd = sd(measurement, na.rm = TRUE)) %>%
   gt() %>%
-  tab_header("Summary of Measurements by Sex and Species")
+  tab_header("Summary of Measurements by Sex and Species") %>%
+  as_raw_html()
 
 tidy_penguin.df %>%
   group_by(sex, species, year, measurement_type) %>%
@@ -81,7 +83,8 @@ penguin.df %>%
   group_by(sex) %>%
   summarise(across(contains("_"), 
                    ~ mean(.x, na.rm = TRUE), .names = "{.col}_mean")) %>% 
-  gt()
+  gt() %>%
+  as_raw_html()
 
 #remove units in the columns
 penguin.df %>%
@@ -91,7 +94,8 @@ penguin.df %>%
   pivot_longer(-sex, names_to = "measurement", values_to = "mean") %>%
   mutate(measurement = str_remove(measurement, "_mm|_g")) %>%
   pivot_wider(names_from = "measurement", values_from = "mean") %>%
-  gt()
+  gt() %>%
+  as_raw_html()
   
 ```
 
@@ -106,7 +110,8 @@ penguin.df %>%
   pivot_longer(-c(sex,species), names_to = "measurement", values_to = "mean") %>%
   mutate(measurement = str_remove(measurement, "_mm|_g")) %>%
   pivot_wider(names_from = "measurement", values_from = "mean") %>%
-  gt()
+  gt() %>%
+  as_raw_html()
   
 ```
 
